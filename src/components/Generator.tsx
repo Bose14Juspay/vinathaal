@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { UploadCloud, FileText, Settings, TestTube2, Download, ArrowLeft, PlusCircle, XCircle } from "lucide-react";
 import html2pdf from 'html2pdf.js';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up the PDF worker to enable PDF parsing
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 type SectionConfig = {
   id: string;
@@ -45,23 +51,47 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
   const [generatedPaper, setGeneratedPaper] = useState<GeneratedPaper | null>(null);
   const paperRef = useRef<HTMLDivElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (file.type === "text/plain") {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setSyllabusText(e.target?.result as string);
-          setFileName(file.name);
-        };
-        reader.readAsText(file);
-      } else {
+    if (!file) return;
+
+    setFileName(file.name);
+    setSyllabusText(""); // Reset syllabus text on new file selection
+
+    if (file.type === "text/plain") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSyllabusText(e.target?.result as string);
+      };
+      reader.readAsText(file);
+    } else if (file.type === "application/pdf") {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        let fullText = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+          fullText += pageText + '\n';
+        }
+        setSyllabusText(fullText);
+      } catch (error) {
+        console.error("Error parsing PDF:", error);
         toast({
-          title: "Unsupported File Type",
-          description: "For this demo, please upload a .txt file.",
+          title: "PDF Parsing Error",
+          description: "Could not read the PDF. It might be a scanned image, which is not supported yet.",
           variant: "destructive",
         });
+        setFileName("");
       }
+    } else {
+      toast({
+        title: "Unsupported File Type",
+        description: "Please upload a .txt or .pdf file.",
+        variant: "destructive",
+      });
+      setFileName("");
     }
   };
 
@@ -175,12 +205,12 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
           <CardContent className="p-8 text-center">
             <UploadCloud className="mx-auto h-16 w-16 text-primary/70" />
             <h2 className="mt-4 text-2xl font-bold">Upload Syllabus</h2>
-            <p className="text-muted-foreground mt-2">Upload a .txt file with your syllabus topics, one topic per line.</p>
+            <p className="text-muted-foreground mt-2">Upload a .txt or .pdf file with your syllabus topics.</p>
             <div className="mt-6">
               <Label htmlFor="syllabus-upload" className="cursor-pointer bg-primary text-primary-foreground px-6 py-3 rounded-md font-semibold inline-block">
                 Choose File
               </Label>
-              <Input id="syllabus-upload" type="file" className="hidden" onChange={handleFileChange} accept=".txt" />
+              <Input id="syllabus-upload" type="file" className="hidden" onChange={handleFileChange} accept=".txt,.pdf" />
             </div>
             {fileName && (
               <div className="mt-6 flex items-center justify-center bg-gray-100 p-4 rounded-md">
