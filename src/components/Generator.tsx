@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +5,21 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, Settings, TestTube2, Download, ArrowLeft } from "lucide-react";
+import { UploadCloud, FileText, Settings, TestTube2, Download, ArrowLeft, PlusCircle, XCircle } from "lucide-react";
 import html2pdf from 'html2pdf.js';
+
+type SectionConfig = {
+  id: string;
+  title: string;
+  numQuestions: string;
+  marksPerQuestion: string;
+};
 
 type PaperConfig = {
   examType: string;
   totalMarks: string;
   subject: string;
+  sections: SectionConfig[];
 };
 
 type GeneratedPaper = {
@@ -29,7 +36,12 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
   const [step, setStep] = useState<"upload" | "configure" | "preview">("upload");
   const [syllabusText, setSyllabusText] = useState("");
   const [fileName, setFileName] = useState("");
-  const [config, setConfig] = useState<PaperConfig>({ examType: "Midterm Exam", totalMarks: "100", subject: "Introduction to Computer Science" });
+  const [config, setConfig] = useState<PaperConfig>({
+    examType: "Midterm Exam",
+    totalMarks: "100",
+    subject: "Introduction to Computer Science",
+    sections: [{ id: crypto.randomUUID(), title: "Section A", numQuestions: "10", marksPerQuestion: "5" }]
+  });
   const [generatedPaper, setGeneratedPaper] = useState<GeneratedPaper | null>(null);
   const paperRef = useRef<HTMLDivElement>(null);
 
@@ -53,30 +65,74 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  const handleAddSection = () => {
+    setConfig(prevConfig => ({
+      ...prevConfig,
+      sections: [
+        ...prevConfig.sections,
+        { id: crypto.randomUUID(), title: `Section ${String.fromCharCode(65 + prevConfig.sections.length)}`, numQuestions: "5", marksPerQuestion: "10" }
+      ]
+    }));
+  };
+
+  const handleRemoveSection = (id: string) => {
+    setConfig(prevConfig => ({
+      ...prevConfig,
+      sections: prevConfig.sections.filter(section => section.id !== id)
+    }));
+  };
+
+  const handleSectionChange = (id: string, field: keyof Omit<SectionConfig, 'id'>, value: string) => {
+    setConfig(prevConfig => ({
+      ...prevConfig,
+      sections: prevConfig.sections.map(section =>
+        section.id === id ? { ...section, [field]: value } : section
+      )
+    }));
+  };
+
   const handleGenerate = () => {
-    // Simple topic extraction: assumes each line is a topic
     const topics = syllabusText.split('\n').filter(line => line.trim() !== '');
     if (topics.length === 0) {
       toast({ title: "Syllabus is empty!", description: "Please upload a syllabus with some content.", variant: "destructive" });
       return;
     }
 
-    const marksPerQuestion = Math.floor(parseInt(config.totalMarks) / topics.length);
+    let topicIndex = 0;
 
-    // Mock question generation
-    const questions = topics.map((topic, index) => ({
-      text: `Elaborate on the key principles of "${topic}". Discuss its applications and significance.`,
-      marks: marksPerQuestion,
-    }));
+    const paperSections = config.sections.map(sectionConfig => {
+      const numQuestions = parseInt(sectionConfig.numQuestions, 10);
+      const marksPerQuestion = parseInt(sectionConfig.marksPerQuestion, 10);
+
+      if (isNaN(numQuestions) || isNaN(marksPerQuestion) || numQuestions <= 0 || marksPerQuestion <= 0) {
+        toast({ title: "Invalid Section Data", description: `Please check the values for "${sectionConfig.title}".`, variant: "destructive" });
+        return null;
+      }
+
+      const questions = [];
+      for (let i = 0; i < numQuestions; i++) {
+        const topic = topics[topicIndex % topics.length];
+        topicIndex++;
+        questions.push({
+          text: `Elaborate on the key principles of "${topic}". Discuss its applications and significance.`,
+          marks: marksPerQuestion,
+        });
+      }
+      return { title: sectionConfig.title, questions };
+    }).filter(Boolean) as { title: string; questions: { text: string; marks: number }[] }[];
+
+    if (paperSections.length !== config.sections.length) {
+      // A toast would have already been shown for the invalid section
+      return;
+    }
+
+    const calculatedTotalMarks = paperSections.reduce((total, section) => total + section.questions.reduce((sectionTotal, q) => sectionTotal + q.marks, 0), 0);
 
     const paper: GeneratedPaper = {
       title: config.examType,
       subject: config.subject,
-      totalMarks: config.totalMarks,
-      sections: [{
-        title: "Section A",
-        questions,
-      }],
+      totalMarks: config.totalMarks || calculatedTotalMarks.toString(),
+      sections: paperSections,
     };
     setGeneratedPaper(paper);
     setStep("preview");
@@ -129,25 +185,57 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
               <CardTitle className="flex items-center"><Settings className="mr-3"/>Configure Paper</CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
-              <div>
-                <Label htmlFor="subject">Subject Name</Label>
-                <Input id="subject" value={config.subject} onChange={e => setConfig({...config, subject: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="subject">Subject Name</Label>
+                  <Input id="subject" value={config.subject} onChange={e => setConfig({...config, subject: e.target.value})} />
+                </div>
+                <div>
+                  <Label htmlFor="exam-type">Exam Type</Label>
+                  <Select value={config.examType} onValueChange={value => setConfig({...config, examType: value})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Internal Exam">Internal Exam</SelectItem>
+                      <SelectItem value="Midterm Exam">Midterm Exam</SelectItem>
+                      <SelectItem value="Semester Exam">Semester Exam</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
-                <Label htmlFor="exam-type">Exam Type</Label>
-                <Select value={config.examType} onValueChange={value => setConfig({...config, examType: value})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Internal Exam">Internal Exam</SelectItem>
-                    <SelectItem value="Midterm Exam">Midterm Exam</SelectItem>
-                    <SelectItem value="Semester Exam">Semester Exam</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-               <div>
-                <Label htmlFor="total-marks">Total Marks</Label>
+                <Label htmlFor="total-marks">Display Total Marks</Label>
                 <Input id="total-marks" type="number" value={config.totalMarks} onChange={e => setConfig({...config, totalMarks: e.target.value})} />
+                 <p className="text-xs text-muted-foreground mt-1">This is displayed in the paper header. Actual marks are calculated from sections.</p>
               </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex justify-between items-center">
+                   <h3 className="text-lg font-medium">Sections</h3>
+                   <Button variant="outline" size="sm" onClick={handleAddSection}><PlusCircle className="mr-2"/> Add Section</Button>
+                </div>
+                {config.sections.map((section, index) => (
+                  <div key={section.id} className="p-4 border rounded-lg bg-gray-50/50 space-y-3 relative">
+                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7" onClick={() => handleRemoveSection(section.id)}>
+                        <XCircle className="text-destructive"/>
+                      </Button>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor={`section-title-${section.id}`}>Title</Label>
+                        <Input id={`section-title-${section.id}`} value={section.title} onChange={e => handleSectionChange(section.id, 'title', e.target.value)} />
+                      </div>
+                      <div>
+                        <Label htmlFor={`num-questions-${section.id}`}>No. of Questions</Label>
+                        <Input id={`num-questions-${section.id}`} type="number" value={section.numQuestions} onChange={e => handleSectionChange(section.id, 'numQuestions', e.target.value)} />
+                      </div>
+                      <div>
+                        <Label htmlFor={`marks-question-${section.id}`}>Marks/Question</Label>
+                        <Input id={`marks-question-${section.id}`} type="number" value={section.marksPerQuestion} onChange={e => handleSectionChange(section.id, 'marksPerQuestion', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <Button onClick={handleGenerate} className="w-full">
                 <TestTube2 className="mr-2 h-4 w-4" />
                 Generate Question Paper
