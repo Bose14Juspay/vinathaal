@@ -98,6 +98,17 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
       return;
     }
 
+    const questionTemplates = [
+      'Elaborate on the key principles of "{topic}". Discuss its applications and significance.',
+      'What is "{topic}"? Explain its core concepts with examples.',
+      'Compare and contrast "{topic}" with a related concept. What are its unique features?',
+      'Describe the architecture and components of "{topic}".',
+      'Analyze the advantages and disadvantages of using "{topic}".',
+      'Provide a detailed case study on the implementation of "{topic}".',
+      'Discuss the historical development and future trends of "{topic}".',
+      'Explain the role of "{topic}" in the broader context of its field.'
+    ];
+
     let topicIndex = 0;
 
     const paperSections = config.sections.map(sectionConfig => {
@@ -112,9 +123,11 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
       const questions = [];
       for (let i = 0; i < numQuestions; i++) {
         const topic = topics[topicIndex % topics.length];
+        const template = questionTemplates[Math.floor(Math.random() * questionTemplates.length)];
+        const questionText = template.replace('{topic}', topic);
         topicIndex++;
         questions.push({
-          text: `Elaborate on the key principles of "${topic}". Discuss its applications and significance.`,
+          text: questionText,
           marks: marksPerQuestion,
         });
       }
