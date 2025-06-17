@@ -3,7 +3,7 @@ import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Edit } from "lucide-react";
+import { ArrowLeft, Code, Download, Edit } from "lucide-react";
 import html2pdf from 'html2pdf.js';
 import { SubjectConfigForm, SubjectConfig, SectionConfig } from './SubjectConfigForm';
 import { fetchAnnaSyllabus, parseSyllabusUnits } from '@/utils/syllabusService';
@@ -24,6 +24,7 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
   const [config, setConfig] = useState<SubjectConfig>({
     subjectCode: "",
     subjectName: "",
+    regulation: "R2017", // ADD THIS LINE
     sections: [{
       id: crypto.randomUUID(),
       name: "Section A",
@@ -33,6 +34,7 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
       units: ["unit1"]
     }]
   });
+  
   const [generatedPaper, setGeneratedPaper] = useState<GeneratedPaper | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -55,18 +57,19 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
         title: "Fetching Syllabus",
         description: "Searching for Anna University syllabus...",
       });
+      console.log("Fetching syllabus for:", config.subjectCode, config.subjectName);
 
       const syllabusText = await fetchAnnaSyllabus(config.subjectCode, config.subjectName);
       const unitTopics = parseSyllabusUnits(syllabusText);
 
       // Generate questions for each section
-      const paperSections = config.sections.map(section => {
-        const questions = generateQuestions(section, unitTopics);
+      const paperSections = await Promise.all(config.sections.map(async (section) => {
+        const questions = await generateQuestions(config.subjectCode, config.subjectName, section); // Now async
         return {
           name: section.name,
-          questions
+          questions,
         };
-      });
+      }));
 
       const totalMarks = paperSections.reduce((total, section) => 
         total + section.questions.reduce((sectionTotal, q) => sectionTotal + q.marks, 0), 0

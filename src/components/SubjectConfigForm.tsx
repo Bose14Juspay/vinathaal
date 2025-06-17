@@ -19,6 +19,7 @@ export type SectionConfig = {
 export type SubjectConfig = {
   subjectCode: string;
   subjectName: string;
+  regulation: string;
   sections: SectionConfig[];
 };
 
