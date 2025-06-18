@@ -12,7 +12,7 @@ export async function generateQuestions(
   subjectName: string,
   section: SectionConfig,
 ): Promise<GeneratedQuestion[]> {
-  const response = await fetch("https://vinathaal-ai.azhizen.com/api/generate-questions", {
+  const response = await fetch("https://vinathaal-ai.azhizen.com/generate-questions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
