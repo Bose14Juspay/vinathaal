@@ -1,16 +1,11 @@
 
-import { useState } from "react";
 import Landing from "@/components/Landing";
-import { Generator } from "@/components/Generator";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const [started, setStarted] = useState(false);
+  const navigate = useNavigate();
 
-  if (!started) {
-    return <Landing onStart={() => setStarted(true)} />;
-  }
-
-  return <Generator onBack={() => setStarted(false)} />;
+  return <Landing onStart={() => navigate("/form")} />;
 };
 
 export default Index;
