@@ -7,7 +7,7 @@ from googlesearch import search
 import google.generativeai as genai
 
 # ✅ IMPORTANT: FastAPI root path should match NGINX location
-app = FastAPI(root_path="/api")
+app = FastAPI()
 
 # ✅ Allow CORS
 app.add_middleware(
