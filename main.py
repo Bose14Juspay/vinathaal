@@ -114,6 +114,3 @@ async def generate_questions(data: SubjectRequest):
         "questions": questions
     }
 
-@app.get("/")
-def root():
-    return {"message": "Welcome to the Question Paper Generator API. Use /generate-questions to generate question papers."}
