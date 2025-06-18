@@ -4,9 +4,11 @@ import subprocess
 app = FastAPI()
 
 @app.post("/webhook")
-async def webhook(request: Request):
+async def github_webhook(request: Request):
     payload = await request.json()
-    # Optional: Validate repo or branch from payload
-    subprocess.run(["git", "pull"], cwd="/home/ubuntu/paper-ai-genesis")  # Your repo path
-    subprocess.run(["systemctl", "restart", "uvicorn"])  # Or reload your app if systemd is used
-    return {"status": "updated"}
+
+    try:
+        subprocess.run(["git", "pull"], cwd="/home/ubuntu/paper-ai-genesis", check=True)
+        return {"status": "success", "message": "Pulled latest code"}
+    except subprocess.CalledProcessError as e:
+        return {"status": "error", "message": str(e)}
