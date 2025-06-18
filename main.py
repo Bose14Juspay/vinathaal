@@ -6,8 +6,10 @@ import pdfplumber
 from googlesearch import search
 import google.generativeai as genai
 
-app = FastAPI()
+# ✅ IMPORTANT: FastAPI root path should match NGINX location
+app = FastAPI(root_path="/api")
 
+# ✅ Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,10 +18,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Gemini API
+# ✅ Gemini API setup
 genai.configure(api_key="AIzaSyBWlOysRamwIuYOC7JWdN32s2ztFTPUbsw")
 model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
 
+# ✅ Data Models
 class SectionConfig(BaseModel):
     id: str
     name: str
@@ -34,14 +37,17 @@ class SubjectRequest(BaseModel):
     regulation: str = "R2017"
     sections: list[SectionConfig]
 
+# ✅ Suppress warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# ✅ Download PDF from URL
 def download_pdf(url):
     headers = {'User-Agent': 'Mozilla/5.0'}
     response = requests.get(url, headers=headers, verify=False)
     response.raise_for_status()
     return response.content
 
+# ✅ Extract unit contents from the syllabus
 def extract_units_only(pdf_content, subject_code, subject_name):
     text = ""
     with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
@@ -64,6 +70,7 @@ def extract_units_only(pdf_content, subject_code, subject_name):
     units_text = re.sub(r"(UNIT\s+[IVX]+)", r"\n\n\1", units_text)
     return units_text.strip()
 
+# ✅ Search and fetch syllabus
 def fetch_units(subject_code, subject_name, regulation):
     query = f"{subject_code} {subject_name} syllabus {regulation} site:annauniv.edu filetype:pdf"
     for url in list(search(query))[:10]:
@@ -76,6 +83,7 @@ def fetch_units(subject_code, subject_name, regulation):
                 continue
     return "❌ No valid syllabus PDF found."
 
+# ✅ Generate question paper
 def generate_questions_with_gemini(syllabus: str, config: SubjectRequest):
     prompt = f"""You're a university question paper generator.
 Subject: {config.subjectCode} - {config.subjectName}
@@ -96,6 +104,7 @@ Sections:\n"""
     except Exception as e:
         return f"❌ Gemini Error: {str(e)}"
 
+# ✅ Main API endpoint
 @app.post("/generate-questions")
 async def generate_questions(data: SubjectRequest):
     syllabus = fetch_units(data.subjectCode, data.subjectName, data.regulation)
