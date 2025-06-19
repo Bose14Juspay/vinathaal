@@ -1,53 +1,20 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests, io, re, urllib3
-import pdfplumber
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+import requests, io, re, urllib3, pdfplumber
 from googlesearch import search
 import google.generativeai as genai
 
-# ✅ IMPORTANT: FastAPI root path should match NGINX location
-app = FastAPI()
-
-# ✅ Allow CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ✅ Gemini API setup
 genai.configure(api_key="AIzaSyBWlOysRamwIuYOC7JWdN32s2ztFTPUbsw")
 model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
-
-# ✅ Data Models
-class SectionConfig(BaseModel):
-    id: str
-    name: str
-    numQuestions: str
-    marksPerQuestion: str
-    difficulty: str
-    units: list[str]
-
-class SubjectRequest(BaseModel):
-    subjectCode: str
-    subjectName: str
-    regulation: str = "R2017"
-    sections: list[SectionConfig]
-
-# ✅ Suppress warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ✅ Download PDF from URL
 def download_pdf(url):
     headers = {'User-Agent': 'Mozilla/5.0'}
     response = requests.get(url, headers=headers, verify=False)
     response.raise_for_status()
     return response.content
 
-# ✅ Extract unit contents from the syllabus
 def extract_units_only(pdf_content, subject_code, subject_name):
     text = ""
     with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
@@ -70,7 +37,6 @@ def extract_units_only(pdf_content, subject_code, subject_name):
     units_text = re.sub(r"(UNIT\s+[IVX]+)", r"\n\n\1", units_text)
     return units_text.strip()
 
-# ✅ Search and fetch syllabus
 def fetch_units(subject_code, subject_name, regulation):
     query = f"{subject_code} {subject_name} syllabus {regulation} site:annauniv.edu filetype:pdf"
     for url in list(search(query))[:10]:
@@ -83,18 +49,17 @@ def fetch_units(subject_code, subject_name, regulation):
                 continue
     return "❌ No valid syllabus PDF found."
 
-# ✅ Generate question paper
-def generate_questions_with_gemini(syllabus: str, config: SubjectRequest):
+def generate_questions_with_gemini(syllabus, config):
     prompt = f"""You're a university question paper generator.
-Subject: {config.subjectCode} - {config.subjectName}
+Subject: {config['subjectCode']} - {config['subjectName']}
 Syllabus:\n{syllabus}\n
 Sections:\n"""
 
-    for section in config.sections:
-        prompt += f"\n{section.name}:\n"
-        prompt += f"Generate {section.numQuestions} {section.difficulty} level questions "
-        prompt += f"from {' ,'.join(section.units).replace('unit', 'UNIT ')} "
-        prompt += f"each carrying {section.marksPerQuestion} marks.\n"
+    for section in config["sections"]:
+        prompt += f"\n{section['name']}:\n"
+        prompt += f"Generate {section['numQuestions']} {section['difficulty']} level questions "
+        prompt += f"from {', '.join(section['units']).replace('unit', 'UNIT ')} "
+        prompt += f"each carrying {section['marksPerQuestion']} marks.\n"
 
     prompt += "\nReturn in a neat plain format."
 
@@ -104,13 +69,12 @@ Sections:\n"""
     except Exception as e:
         return f"❌ Gemini Error: {str(e)}"
 
-# ✅ Main API endpoint
-@app.post("/generate-questions")
-async def generate_questions(data: SubjectRequest):
-    syllabus = fetch_units(data.subjectCode, data.subjectName, data.regulation)
-    questions = generate_questions_with_gemini(syllabus, data)
-    return {
-        "syllabus": syllabus,
-        "questions": questions
-    }
-
+@api_view(["POST"])
+def generate_questions(request):
+    try:
+        data = request.data
+        syllabus = fetch_units(data["subjectCode"], data["subjectName"], data.get("regulation", "R2017"))
+        questions = generate_questions_with_gemini(syllabus, data)
+        return Response({"syllabus": syllabus, "questions": questions})
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
