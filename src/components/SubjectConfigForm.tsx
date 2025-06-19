@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, XCircle, TestTube2 } from "lucide-react";
+import { v4 as uuidv4 } from 'uuid';
 
 export type SectionConfig = {
   id: string;
@@ -50,7 +51,7 @@ export const SubjectConfigForm = ({ config, onConfigChange, onGenerate }: Subjec
 
   const handleAddSection = () => {
     const newSection: SectionConfig = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: `Section ${String.fromCharCode(65 + config.sections.length)}`,
       numQuestions: "5",
       marksPerQuestion: "2",

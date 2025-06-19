@@ -8,6 +8,7 @@ import html2pdf from 'html2pdf.js';
 import { SubjectConfigForm, SubjectConfig, SectionConfig } from './SubjectConfigForm';
 import { fetchAnnaSyllabus, parseSyllabusUnits } from '@/utils/syllabusService';
 import { generateQuestions, GeneratedQuestion, formatUnitDisplay } from '@/utils/questionGenerator';
+import { v4 as uuidv4 } from 'uuid';
 
 type GeneratedPaper = {
   subjectCode: string;
@@ -26,7 +27,7 @@ export const Generator = ({ onBack }: { onBack: () => void }) => {
     subjectName: "",
     regulation: "R2017", // ADD THIS LINE
     sections: [{
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       name: "Section A",
       numQuestions: "5",
       marksPerQuestion: "2",
