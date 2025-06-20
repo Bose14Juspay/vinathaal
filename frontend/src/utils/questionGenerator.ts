@@ -1,4 +1,3 @@
-
 import { SectionConfig } from '@/components/SubjectConfigForm';
 
 export type GeneratedQuestion = {
@@ -10,14 +9,14 @@ export type GeneratedQuestion = {
 export async function generateQuestions(
   subjectCode: string,
   subjectName: string,
-  section: SectionConfig,
+  section: SectionConfig
 ): Promise<GeneratedQuestion[]> {
   const response = await fetch("http://127.0.0.1:8000/generate-questions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      subjectCode,  // ✅ uses the argument passed to the function
-      subjectName,  // ✅ same here
+      subjectCode,
+      subjectName,
       regulation: "R2017",
       sections: [
         {
@@ -32,14 +31,20 @@ export async function generateQuestions(
     })    
   });
 
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
   const data = await response.json();
 
-  // Parse Gemini-generated plain-text into list of questions
-  const lines = data.questions.split(/\n+/).filter((line: string) => line.trim().length > 0);
+  if (!Array.isArray(data.questions)) {
+    console.error("Unexpected API response:", data);
+    throw new Error("Invalid question data received from backend.");
+  }
 
-  return lines.map((line: string, index: number) => ({
-    text: line.replace(/^\d+[\.\)]?\s*/, ""), // Remove numbering if any
-    unit: section.units[0], // Or try to extract from question text if needed
+  return data.questions.map((q: any) => ({
+    text: q.text || "",
+    unit: q.unit || section.units[0],
     marks: parseInt(section.marksPerQuestion)
   }));
 }
@@ -50,5 +55,5 @@ export function formatUnitDisplay(unit: string): string {
   if (!isNaN(unitNumber) && unitNumber >= 1 && unitNumber <= 10) {
     return `Unit ${romanNumerals[unitNumber - 1]}`;
   }
-  return unit; // fallback if format is unknown
+  return unit;
 }
