@@ -17,25 +17,34 @@ def download_pdf(url):
 
 def extract_units_only(pdf_content, subject_code, subject_name):
     text = ""
-    with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
-        for page in pdf.pages:
-            txt = page.extract_text()
-            if txt:
-                text += "\n" + txt
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_content)) as pdf:
+            for page in pdf.pages:
+                txt = page.extract_text()
+                if txt:
+                    text += "\n" + txt
+    except Exception as e:
+        return f"❌ PDF extraction failed: {str(e)}"
+
     text = re.sub(r'\s+', ' ', text)
     subject_line_pattern = rf"{subject_code}\s+{re.escape(subject_name)}\s+L\s+T\s+P\s+C\s+\d\s+\d\s+\d\s+\d"
     subject_match = re.search(subject_line_pattern, text, re.IGNORECASE)
+
     if not subject_match:
         return "❌ Couldn't find subject heading with LTPC format."
+
     unit_start = re.search(r"UNIT\s+I", text[subject_match.start():], re.IGNORECASE)
     if not unit_start:
         return "❌ Couldn't find 'UNIT I' after subject heading."
+
     unit_start_idx = subject_match.start() + unit_start.start()
     end_match = re.search(r"(OUTCOMES|TEXT BOOKS|REFERENCES|TOTAL\s*:\s*\d+\s*PERIODS)", text[unit_start_idx:], re.IGNORECASE)
     end_idx = unit_start_idx + end_match.start() if end_match else len(text)
+
     units_text = text[unit_start_idx:end_idx]
     units_text = re.sub(r"(UNIT\s+[IVX]+)", r"\n\n\1", units_text)
     return units_text.strip()
+
 
 def fetch_units(subject_code, subject_name, regulation):
     query = f"{subject_code} {subject_name} syllabus {regulation} site:annauniv.edu filetype:pdf"
@@ -43,10 +52,21 @@ def fetch_units(subject_code, subject_name, regulation):
         if url.lower().endswith(".pdf"):
             try:
                 pdf_data = download_pdf(url)
+                if not pdf_data or len(pdf_data) < 1000:
+                    print(f"⚠️ Skipping invalid PDF from {url}")
+                    continue
+
                 syllabus = extract_units_only(pdf_data, subject_code, subject_name)
+                if syllabus.startswith("❌"):
+                    print(f"⚠️ Skipping PDF that failed to extract units from {url}")
+                    continue
+
+                print(f"✅ Successfully fetched syllabus from: {url}")
                 return syllabus
-            except Exception:
+            except Exception as e:
+                print(f"❌ Error processing PDF from {url}: {str(e)}")
                 continue
+
     return "❌ No valid syllabus PDF found."
 
 def generate_questions_with_gemini(syllabus, config):
