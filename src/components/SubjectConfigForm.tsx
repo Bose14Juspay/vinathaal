@@ -118,7 +118,7 @@ export const SubjectConfigForm = ({ config, onConfigChange, onGenerate }: Subjec
               id="subject-code"
               placeholder="e.g., CS8493"
               value={config.subjectCode}
-              onChange={e => handleSubjectChange('subjectCode', e.target.value)}
+              onChange={e => handleSubjectChange('subjectCode', (e.target as HTMLInputElement).value)}
             />
           </div>
           <div>
