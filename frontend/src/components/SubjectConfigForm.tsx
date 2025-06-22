@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +17,6 @@ export type SectionConfig = {
 };
 
 export type SubjectConfig = {
-  subjectCode: string;
   subjectName: string;
   regulation: string;
   sections: SectionConfig[];
@@ -28,6 +26,7 @@ interface SubjectConfigFormProps {
   config: SubjectConfig;
   onConfigChange: (config: SubjectConfig) => void;
   onGenerate: () => void;
+  subjectLocked?: boolean;
 }
 
 const DIFFICULTY_OPTIONS = [
@@ -44,7 +43,7 @@ const UNIT_OPTIONS = [
   { value: "unit5", label: "UNIT V" }
 ];
 
-export const SubjectConfigForm = ({ config, onConfigChange, onGenerate }: SubjectConfigFormProps) => {
+export const SubjectConfigForm = ({ config, onConfigChange, onGenerate, subjectLocked = false }: SubjectConfigFormProps) => {
   const handleSubjectChange = (field: 'subjectCode' | 'subjectName', value: string) => {
     onConfigChange({ ...config, [field]: value });
   };
@@ -113,22 +112,13 @@ export const SubjectConfigForm = ({ config, onConfigChange, onGenerate }: Subjec
         {/* Subject Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label htmlFor="subject-code">Subject Code</Label>
-            <Input
-              id="subject-code"
-              placeholder="e.g., CS8493"
-              value={config.subjectCode}
-              onChange={e => handleSubjectChange('subjectCode', e.target.value)}
-            />
-          </div>
-          <div>
             <Label htmlFor="subject-name">Subject Name</Label>
             <Input
-              id="subject-name"
-              placeholder="e.g., Operating Systems"
-              value={config.subjectName}
-              onChange={e => handleSubjectChange('subjectName', e.target.value)}
-            />
+                id="subject-name"
+                value={config.subjectName}
+                onChange={e => handleSubjectChange('subjectName', e.target.value)}
+                disabled={subjectLocked}
+              />
           </div>
         </div>
 
@@ -235,7 +225,7 @@ export const SubjectConfigForm = ({ config, onConfigChange, onGenerate }: Subjec
         <Button
           onClick={onGenerate}
           className="w-full"
-          disabled={!config.subjectCode || !config.subjectName || config.sections.length === 0}
+          disabled={!config.subjectName || config.sections.length === 0}
         >
           <TestTube2 className="mr-2 h-4 w-4" />
           Generate Question Paper
