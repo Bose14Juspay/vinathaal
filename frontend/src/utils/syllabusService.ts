@@ -1,5 +1,5 @@
 // utils/syllabusService.ts
-const BASE_URL = "http://localhost:4000";
+const BASE_URL = "https://vinathaal-ai.azhizen.com";
 export type SyllabusExtractedData = {
   subjectName: string;
   syllabusText: string;

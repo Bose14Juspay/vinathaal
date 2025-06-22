@@ -15,7 +15,7 @@ export async function generateQuestions(
   unitTopics: UnitTopics
 ): Promise<GeneratedQuestion[]> {
   try {
-    const response = await fetch("http://localhost:4000/api/generate-questions", {
+    const response = await fetch("https://vinathaal-ai.azhizen.com/api/generate-questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

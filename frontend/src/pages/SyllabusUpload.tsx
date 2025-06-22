@@ -21,7 +21,7 @@ export const SyllabusUpload = ({
     formData.append("image", file);
 
     try {
-      const res = await fetch("http://localhost:4000/api/extract-syllabus", {
+      const res = await fetch("https://vinathaal-ai.azhizen.com/api/extract-syllabus", {
         method: "POST",
         body: formData,
       });
